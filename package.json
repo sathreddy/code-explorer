@@ -1,0 +1,26 @@
+{
+  "name": "code-explorer",
+  "version": "1.0.0",
+  "description": "CLI tool to explore codebases and answer questions with file references",
+  "module": "src/index.ts",
+  "type": "module",
+  "bin": {
+    "code-explorer": "./bin/code-explorer"
+  },
+  "scripts": {
+    "build": "bun build src/index.ts --compile --outfile bin/code-explorer",
+    "dev": "bun run src/index.ts",
+    "test": "bun test"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "commander": "^12.1.0",
+    "chalk": "^5.3.0",
+    "ignore": "^5.3.1"
+  }
+}
