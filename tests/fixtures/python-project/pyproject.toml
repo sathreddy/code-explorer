@@ -1,0 +1,4 @@
+[project]
+name = "test-python-app"
+version = "1.0.0"
+dependencies = ["flask>=3.0", "sqlalchemy>=2.0"]
