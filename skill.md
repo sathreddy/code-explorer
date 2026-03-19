@@ -1,65 +1,52 @@
 ---
 name: code-explorer
-description: Explore a codebase and answer questions with file references using LLM-powered analysis
+description: Use when exploring an unfamiliar codebase, understanding architecture, tracing request flows, onboarding to a new project, or finding specific code patterns across local directories, GitHub repos, GitLab repos, or git URLs
 invocation: user
 ---
 
 # Code Explorer
 
-Explore codebases (local or remote) and answer questions with accurate file:line references.
+Explore any codebase and get structured answers with file:line citations and Mermaid diagrams.
 
 ## Usage
-
-```
-/code-explorer <source> "<question>"
-```
-
-## Examples
-
-```bash
-# Local directory
-/code-explorer ./src "How does authentication work?"
-
-# GitHub repo (uses API - no clone needed)
-/code-explorer github:anthropics/claude-code "How does the CLI parse arguments?"
-
-# GitLab repo
-/code-explorer gitlab:group/project "What testing framework is used?"
-
-# Any git URL (shallow clones)
-/code-explorer https://github.com/oven-sh/bun.git "How is the CLI structured?"
-```
-
-## Options
-
-- `--model, -m`: LLM model (gemini or haiku, default: gemini)
-- `--max-depth, -d`: Tree depth limit (default: 6)
-- `--exclude, -e`: Additional patterns to exclude
-- `--include, -i`: Additional patterns to include
-- `--branch, -b`: Branch/tag/commit for remote repos
-- `--verbose, -v`: Show exploration steps
-
-## Environment Variables
-
-- `GEMINI_API_KEY`: Required for Gemini model (default)
-- `ANTHROPIC_API_KEY`: Required for Haiku model
-- `GITHUB_TOKEN`: Optional, for private repos and higher rate limits
-- `GITLAB_TOKEN`: Optional, for private GitLab repos
-
-## Instructions
-
-When the user invokes this skill, run the code-explorer CLI:
 
 ```bash
 ~/dev/code-explorer/bin/code-explorer <source> "<question>" [options]
 ```
 
-Parse the user's input to extract the source path/URL, question, and any options.
+## Quick Examples
 
-The tool will:
+```bash
+/code-explorer . "How does authentication work?"
+/code-explorer github:anthropics/claude-code "How is the CLI structured?"
+/code-explorer . "Trace a payment request end-to-end" --mode trace
+/code-explorer . "What do I need to know to contribute?" --mode onboard
+```
 
-1. Generate a filtered directory tree
-2. Use an LLM to explore relevant files
-3. Return an answer with file:line references
+## Modes
 
-Return the full output to the user.
+| Mode | When to use |
+|------|------------|
+| `architecture` | Understanding system design, module boundaries, dependencies (default) |
+| `trace` | Following a request/data flow end-to-end |
+| `onboard` | Getting up to speed on a new project |
+| `search` | Finding specific code, patterns, or functionality |
+
+## Model Aliases
+
+`flash` (Gemini 3 Flash), `sonnet` (Claude Sonnet 4.6), `haiku` (Claude Haiku 4.5), `gpt5` (GPT-5.4 Mini), `deepseek` (DeepSeek V3.2), or any full model ID.
+
+## Key Options
+
+- `--model, -m`: Model alias or ID (default: flash)
+- `--mode`: Exploration mode (default: architecture)
+- `--diagram`: Open diagram in browser (mermaid, excalidraw, html)
+- `--save, -s`: Save exploration as markdown
+- `--json`: JSON output
+- `--verbose, -v`: Show tool calls live
+
+## Instructions
+
+Parse user input to extract source, question, and options. Run the CLI. Return the full output.
+
+Requires at least one API key: `GEMINI_API_KEY`, `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, or `OPENROUTER_API_KEY`.
