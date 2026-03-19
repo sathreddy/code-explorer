@@ -348,6 +348,10 @@ export interface ExploreResult {
   parsed: ExplorationResult;
   stats: ExplorationStats;
   messages: LLMMessage[];
+  provider: LLMProvider;
+  tools: unknown[];
+  systemPrompt: string;
+  executeToolCalls: (toolCalls: LLMToolCall[]) => Promise<{ id: string; name: string; result: string }[]>;
 }
 
 export async function explore(
@@ -389,10 +393,16 @@ export async function explore(
       console.log(chalk.dim("Starting exploration..."));
     }
 
+    const systemPrompt = buildSystemPrompt(options.mode);
+    const tools = provider.formatTools(TOOL_DEFINITIONS);
+
     const { text, stats } = await runExploration(provider, ctx, question, initialTree, projectContext, options);
     const parsed = parseStructuredOutput(text);
 
-    return { parsed, stats, messages: [] };
+    const boundExecuteToolCalls = (toolCalls: LLMToolCall[]) =>
+      executeToolCallsParallel(ctx, toolCalls, options.maxDepth, options.verbose ?? false);
+
+    return { parsed, stats, messages: [], provider, tools, systemPrompt, executeToolCalls: boundExecuteToolCalls };
   } finally {
     if (ctx.cleanup) {
       await ctx.cleanup();

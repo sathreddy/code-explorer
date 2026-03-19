@@ -8,6 +8,7 @@ import { explore, formatStats, type ExplorerOptions } from "./explorer";
 import { formatTerminalOutput, generateDiagramUrl, generateHtmlDiagram } from "./output";
 import { getModelInfo } from "./llm/provider";
 import type { ExplorationMode } from "./prompts";
+import { startInteractiveMode } from "./interactive";
 
 const VALID_MODES = ["architecture", "trace", "onboard", "search"] as const;
 const VALID_DIAGRAMS = ["mermaid", "excalidraw", "html"] as const;
@@ -33,6 +34,7 @@ program
   .option("--diagram <target>", "Open diagram (mermaid, excalidraw, html)")
   .option("-s, --save [path]", "Save exploration as markdown file")
   .option("--json", "Output as JSON")
+  .option("--interactive", "Enter interactive mode for follow-up questions")
   .action(async (source: string, question: string, opts) => {
     const mode = opts.mode as ExplorationMode;
     if (!VALID_MODES.includes(mode)) {
@@ -107,6 +109,19 @@ program
           : `${source.replace(/[^a-zA-Z0-9]/g, "-")}-exploration-${new Date().toISOString().slice(0, 10)}.md`;
         await writeFile(savePath, result.parsed.raw);
         console.log(chalk.green(`\nExploration saved to ${savePath}`));
+      }
+
+      if (opts.interactive) {
+        await startInteractiveMode({
+          model: opts.model,
+          mode,
+          systemPrompt: result.systemPrompt,
+          tools: result.tools,
+          provider: result.provider,
+          messages: result.messages,
+          lastResult: result.parsed,
+          executeToolCalls: result.executeToolCalls,
+        });
       }
     } catch (error) {
       console.error(chalk.red(`Error: ${error instanceof Error ? error.message : String(error)}`));
