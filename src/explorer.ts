@@ -319,6 +319,7 @@ async function runExploration(
       role: "assistant",
       content: response.text,
       toolCalls: response.toolCalls,
+      _rawParts: response._rawParts,
     });
 
     const results = await executeToolCallsParallel(ctx, response.toolCalls, options.maxDepth, options.verbose ?? false);

@@ -19,6 +19,7 @@ export interface LLMMessage {
   content?: string;
   toolCalls?: LLMToolCall[];
   toolResults?: { toolCallId: string; content: string }[];
+  _rawParts?: unknown[];
 }
 
 export interface LLMResponse {
@@ -27,6 +28,7 @@ export interface LLMResponse {
   done: boolean;
   inputTokens?: number;
   outputTokens?: number;
+  _rawParts?: unknown[];
 }
 
 export interface LLMProvider {
@@ -126,6 +128,9 @@ class GeminiProvider implements LLMProvider {
         return { role: "user", parts: [{ text: msg.content }] };
       }
       if (msg.role === "assistant") {
+        if (msg._rawParts) {
+          return { role: "model", parts: msg._rawParts };
+        }
         const parts: unknown[] = [];
         if (msg.content) parts.push({ text: msg.content });
         if (msg.toolCalls) {
@@ -196,6 +201,7 @@ class GeminiProvider implements LLMProvider {
       done: toolCalls.length === 0,
       inputTokens: data.usageMetadata?.promptTokenCount,
       outputTokens: data.usageMetadata?.candidatesTokenCount,
+      _rawParts: candidate.content.parts,
     };
   }
 }
