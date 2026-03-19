@@ -1,75 +1,89 @@
-# Code Explorer — Agent Onboarding
+# CLAUDE.md
 
-CLI tool that uses LLMs to explore codebases and answer questions with file:line citations and Mermaid diagrams.
+CLI tool that uses LLMs to explore codebases and answer questions with file:line citations and Mermaid diagrams. Built with Bun + TypeScript.
 
-## Quick Start
-
-```bash
-bun install
-bun test              # 67 tests, must all pass
-bun run dev . "How is this project structured?"   # Run against itself
-bun run build         # Compile to standalone binary at bin/code-explorer
-```
-
-## Architecture
+## Project map
 
 ```
 src/
-├── index.ts         # CLI entry (commander). Parses args, runs explore(), handles output/diagrams/save/interactive.
-├── explorer.ts      # Core orchestration. Resolves source → context, runs LLM tool-use loop, returns structured result.
-├── detect.ts        # Project type detection. Scans config files → returns type, language, deps, focus areas, LLM context string.
-├── filter.ts        # File filtering. Combines .gitignore + default exclusions + binary detection + size limits.
-├── output.ts        # Output parsing. Splits LLM response into Summary/Findings/Diagrams/KeyFiles/Confidence. Terminal formatting.
-├── prompts.ts       # System prompts. Base strategy + 4 mode-specific prompts (architecture/trace/onboard/search).
-├── interactive.ts   # REPL. Readline loop with /help /mode /diagram /save /quit. Preserves full message history.
+├── index.ts         — CLI entry (commander), parses args, runs explore(), handles output/diagrams/save/interactive
+├── explorer.ts      — Core orchestration: source → context → LLM tool-use loop → structured result
+├── detect.ts        — Project type detection from config files → type, language, deps, focus areas
+├── filter.ts        — File filtering: .gitignore + default exclusions + binary detection + size limits
+├── output.ts        — Parses LLM response into Summary/Findings/Diagrams/KeyFiles/Confidence sections
+├── prompts.ts       — System prompts: base strategy + 4 mode-specific (architecture/trace/onboard/search)
+├── interactive.ts   — REPL with /help /mode /diagram /save /quit, preserves message history
 ├── llm/
-│   └── provider.ts  # Unified LLMProvider interface. Implementations: Gemini, Anthropic, OpenAI, OpenRouter.
-│                      Model aliases (flash/sonnet/haiku/gpt5/deepseek) resolve to latest model IDs.
-│                      getModelInfo() handles alias resolution + pricing. createProvider() instantiates.
+│   └── provider.ts  — Unified LLMProvider interface: Gemini, Anthropic, OpenAI, OpenRouter
 ├── tools/
-│   ├── tree.ts      # Directory tree generation with recursive filtering.
-│   ├── read.ts      # File reading with line ranges, binary detection, size truncation.
-│   ├── grep.ts      # Regex search across files. Max 100 matches. Groups by file.
-│   └── glob.ts      # Glob pattern matching. Max 200 results.
+│   ├── tree.ts      — Directory tree with recursive filtering
+│   ├── read.ts      — File reading with line ranges, binary detection, size truncation
+│   ├── grep.ts      — Regex search across files (max 100 matches, grouped by file)
+│   └── glob.ts      — Glob pattern matching (max 200 results)
 └── remote/
-    ├── github.ts    # GitHub REST API v3. No clone needed. Parses github:owner/repo and full URLs.
-    ├── gitlab.ts    # GitLab REST API v4. No clone needed. Parses gitlab:group/project.
-    └── clone.ts     # Shallow git clone to temp dir. Fallback for generic git URLs.
+    ├── github.ts    — GitHub REST API v3 (no clone needed)
+    ├── gitlab.ts    — GitLab REST API v4 (no clone needed)
+    └── clone.ts     — Shallow git clone to temp dir for generic git URLs
 ```
 
-## Key Design Decisions
+<important if="you need to run commands to build, test, lint, or install">
 
-- **Unified LLMProvider**: Single interface for all models. Each provider translates to/from a common LLMMessage format. Gemini requires `_rawParts` passthrough for thought_signature fields.
-- **Parallel tool execution**: When the LLM requests multiple tool calls in one response, they execute concurrently via Promise.all. This cuts exploration time 30-50%.
-- **Structured output**: The system prompt instructs the LLM to always produce ## Summary, ## Findings, ## Diagram (mermaid), ## Key Files (table), ## Confidence. The output module parses these sections.
-- **Project detection runs before exploration**: detect.ts scans for config files and injects a context string (e.g., "This is a Node.js project written in TypeScript using express, prisma") into the LLM prompt so it knows what it's looking at.
+| Command | What it does |
+|---|---|
+| `bun install` | Install dependencies |
+| `bun test` | Run all tests (must pass before committing) |
+| `bun test tests/<file>` | Run a specific test file |
+| `bun run dev . "query"` | Run against a local directory |
+| `bun run build` | Compile to standalone binary at `bin/code-explorer` |
 
-## How the Exploration Loop Works
+</important>
 
-1. `explore()` resolves the source (local/GitHub/GitLab/git URL) into a SourceContext
-2. `detectProject()` identifies project type and builds LLM context
-3. `getInitialTree()` generates the directory tree
-4. `runExploration()` enters a tool-use loop (max 25 iterations):
-   - Send messages to LLM with system prompt + tools
-   - If LLM returns tool calls → execute in parallel → append results → loop
-   - If LLM returns text (done) → return the answer
-5. `parseStructuredOutput()` splits the answer into sections
-6. CLI displays formatted output, opens diagrams, saves files, or enters interactive mode
+<important if="you are modifying the LLM provider interface or adding a new LLM provider">
 
-## Testing
+- Unified LLMProvider interface: all providers translate to/from a common LLMMessage format
+- Gemini requires `_rawParts` passthrough for `thought_signature` fields on tool calls
+- Model aliases (flash/sonnet/haiku/gpt5/deepseek) resolve to latest model IDs via `getModelInfo()`
+- `createProvider()` instantiates the correct provider class
 
-```bash
-bun test                          # All tests
-bun test tests/detect.test.ts     # Just detection
-bun test tests/llm-provider.test.ts  # Just provider
-```
+</important>
 
-Tests use fixture directories in `tests/fixtures/` with minimal config files for each project type. LLM provider tests verify message formatting and model resolution without making API calls.
+<important if="you are modifying the exploration loop, tool execution, or how LLM calls are orchestrated">
 
-## Rules
+Exploration flow in `explorer.ts`:
+1. Resolve source (local/GitHub/GitLab/git URL) → SourceContext
+2. `detectProject()` identifies project type, injects context into LLM prompt
+3. `getInitialTree()` generates directory tree
+4. `runExploration()` tool-use loop (max 25 iterations): LLM returns tool calls → execute in parallel via Promise.all → append results → loop until LLM returns text
+5. `parseStructuredOutput()` splits answer into sections
 
-- Run `bun test` before committing — all 67 tests must pass
-- Run `bun run build` to verify the binary compiles
-- File references use format `path/file.ts:45` or `path/file.ts:45-67`
+</important>
+
+<important if="you are writing or modifying tests">
+
+- Tests use fixture directories in `tests/fixtures/` with minimal config files per project type
+- LLM provider tests verify message formatting and model resolution without API calls
+- All tests must pass before committing
+
+</important>
+
+<important if="you are modifying how the LLM response is parsed or displayed">
+
+- The system prompt (in `prompts.ts`) instructs the LLM to produce: ## Summary, ## Findings, ## Diagram (mermaid), ## Key Files (table), ## Confidence
+- `output.ts` parses these sections and handles terminal formatting
+
+</important>
+
+<important if="you are writing code in this project">
+
 - No inline comments or docstrings in code
+- File references use format `path/file.ts:45` or `path/file.ts:45-67`
+
+</important>
+
+<important if="you are creating a commit">
+
+- Run `bun test` before committing — all tests must pass
+- Run `bun run build` to verify the binary compiles
 - Commit messages: imperative, concise, no attribution
+
+</important>
